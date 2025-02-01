@@ -10,24 +10,30 @@ const Admin = () => {
     }, []);
 
     const getRemainingPlayers = () => {
-        fetch(`/remainingPlayers`)
+        fetch('http://localhost:3001/remainingPlayers')
             .then((res) => res.json())
-            .then((remainingPlayers) => { setRemainingPlayers(remainingPlayers.message) })
+            .then((data) => {
+                console.log("Received players:", data.message);
+                setRemainingPlayers(data.message || []);
+            })
             .catch((error) => {
-                console.error("Error fetching data:", error)
+                console.error("Error fetching data:", error);
+                setRemainingPlayers([]);
             });
     }
 
     const eliminatePlayer = () => {
-        fetch(`/eliminate?username=${selectedPlayer}&numPlayersEliminated=${numPlayersEliminated}`)
+        if (!selectedPlayer) return;
+
+        fetch(`http://localhost:3001/eliminate?username=${selectedPlayer}&numPlayersEliminated=${numPlayersEliminated}`)
             .then((res) => res.json())
-            .then((numPlayersEliminated) => {
-                // Assume the server response contains the updated number of eliminated players
-                setNumPlayersEliminated(numPlayersEliminated.message);
+            .then((data) => {
+                setNumPlayersEliminated(data.message);
+                setSelectedPlayer('');
                 getRemainingPlayers();
             })
             .catch((error) => {
-                console.error("Error eliminating player:", error)
+                console.error("Error eliminating player:", error);
             });
     };
 
@@ -46,16 +52,21 @@ const Admin = () => {
                     value={selectedPlayer}
                     onChange={(e) => setSelectedPlayer(e.target.value)}
                 >
-                    <option disabled selected value="">Please select a player</option>
-                    {remainingPlayers.map((e, index) => <option key={index} value={e}>{e}</option>)}
+                    <option value="">Please select a player</option>
+                    {remainingPlayers && remainingPlayers.map((player, index) => (
+                        <option key={index} value={player}>
+                            {player}
+                        </option>
+                    ))}
                 </select>
                 <div className='flex justify-center p-6'>
                     <button 
                         id='eliminate-btn' 
                         className='py-6 px-10 bg-green-500 rounded-full lg:text-4xl md:text-4xl text-3xl hover:bg-green-300 transition duration-300 ease-in-out flex items-center'
-                        onClick={eliminatePlayer} disabled={!selectedPlayer}
+                        onClick={eliminatePlayer}
+                        disabled={!selectedPlayer}
                     >
-                        Eliminate {selectedPlayer}
+                        {selectedPlayer ? `Eliminate ${selectedPlayer}` : 'Select a player'}
                     </button>
                 </div>
             </div>

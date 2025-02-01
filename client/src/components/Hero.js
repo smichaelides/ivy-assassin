@@ -1,42 +1,55 @@
 import React, { useState, useEffect } from 'react'
 
-const Hero = () => {
+const Hero = ({ netid }) => {
     const [targetData, setData] = useState(null);
     const [revealBool, setRevealBool] = useState(false);
     const [numKills, setNumKills] = useState(0);
     const [numRemaining, setNumRemaining] = useState(200);
-    const [netid, setNetID] = useState('netid');
 
     // Will run this useEffect() on page load
     useEffect(() => {
-        fetch(`/numKills?username=${netid}`)
-            .then((res) => res.json())
-            .then((numKills) => {setNumKills(numKills.message)})
-            .catch((error) => {
-                console.error("Error fetching data:", error)
-            });
-        fetch(`/numRemaining`)
-            .then((res) => res.json())
-            .then((numRemaining) => {setNumRemaining(numRemaining.message)})
-            .catch((error) => {
-                console.error("Error fetching data:", error)
-            });
-    }, []);
+        if (netid) {
+            fetch(`http://localhost:3001/numKills?username=${netid}`)
+                .then((res) => res.json())
+                .then((data) => {
+                    console.log("Kills data:", data);
+                    setNumKills(data.message);
+                })
+                .catch((error) => {
+                    console.error("Error fetching kills:", error);
+                });
 
+            fetch(`http://localhost:3001/numRemaining`)
+                .then((res) => res.json())
+                .then((data) => {
+                    console.log("Remaining players:", data);
+                    setNumRemaining(data.message);
+                })
+                .catch((error) => {
+                    console.error("Error fetching remaining:", error);
+                });
+        }
+    }, [netid]);
 
     const revealTarget = () => {
-        if (revealBool) {
-            setRevealBool(false);
-        } 
-        else {
-            setRevealBool(true);
+        setRevealBool(!revealBool);
+        
+        if (!revealBool) {
+            fetch(`http://localhost:3001/target?username=${netid}`)
+                .then((res) => res.json())
+                .then((data) => {
+                    console.log("Target data:", data);
+                    if (data.message) {
+                        setData(data.message);
+                    } else {
+                        setData('No target found');
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error fetching target:", error);
+                    setData('Error loading target');
+                });
         }
-        fetch(`/target?username=${netid}`)
-            .then((res) => res.json())
-            .then((targetData) => {setData(targetData.message)})
-            .catch((error) => {
-                console.error("Error fetching data:", error);
-            });
     };
 
     return (
@@ -51,7 +64,7 @@ const Hero = () => {
             <div className='py-10'></div>
             <button className='py-6 px-10 bg-green-500 rounded-full lg:text-4xl md:text-4xl text-3xl hover:bg-green-300 transition duration-300 ease-in-out flex items-center animate-bounce'
             onClick={revealTarget}>
-                {revealBool ? targetData : 'Reveal Target'}
+                {revealBool ? (targetData || 'Loading target data...') : 'Reveal Target'}
             </button>
             <div className='py-5'></div>
             <div className='grid grid-cols-1 sm:grid-cols-1 sm:w-2/4 w-2/4 md:w-full md:grid-cols-2 gap-4 p-10 rounded-xl  items-center text-center bg-green-500 text-black relative shadow-sm max-w-screen-lg items-center'>

@@ -43,6 +43,9 @@ const testUsers = {
 // ALL USERS STILL ALIVE - once they get eliminated will be removed from this list 
 const aliveUsers = ['netid', 'sm5635', 'hk1234'];
 
+// Add this new array to store elimination history
+const eliminationsHistory = [];
+
 // GAME INFO
 const testGame = {
   'gameHasBegun': true,
@@ -76,15 +79,30 @@ app.get('/isAdmin*', (req, res) => {
 
 // GETs a players target
 app.get('/target*', (req, res) => {
-  const username = req.query.username; // Corrected this line
-  console.log(`Received request for username: ${username}`);
-  const user = testUsers[username];
-  if (user) {
-    const target = user['nextTarget'];
-    res.json({ message: target });
-  } else {
-    res.status(404).json({ error: 'User not found' });
-  }
+    try {
+        const username = req.query.username;
+        console.log(`Received target request for username: ${username}`);
+        
+        if (!username) {
+            return res.status(400).json({ error: 'Username is required' });
+        }
+
+        const user = testUsers[username];
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const target = user['nextTarget'];
+        if (!target) {
+            return res.status(404).json({ error: 'No target found' });
+        }
+
+        console.log(`Sending target ${target} for user ${username}`);
+        res.json({ message: target });
+    } catch (error) {
+        console.error('Error in /target:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 // GETs a players number of kills
@@ -120,40 +138,64 @@ app.get('/isEliminated*', (req, res) => {
 
 // GET all remaining players netids
 app.get('/remainingPlayers', (req, res) => {
-  // HOW TO GET LIST OF ALL USERS (DEAD OR ALIVE): const playeres = Object.keys(testUsers);
-  const remainingPlayers = aliveUsers;
-  console.log(remainingPlayers);
-  res.json({ message: remainingPlayers });
+    try {
+        // Send the array directly without wrapping it in an object
+        console.log("Sending remaining players:", aliveUsers);
+        res.json({ message: aliveUsers });
+    } catch (error) {
+        console.error("Error in /remainingPlayers:", error);
+        res.status(500).json({ error: 'Internal server error', message: [] });
+    }
 });
 
-// PROBABLY SHOULD BE A POST REQUEST TO DB BC CHANGING VALUES - LOGIC IS CORRECT THOUGH
+// Modify the eliminate endpoint to record eliminations
 app.get('/eliminate*', (req, res) => {
-  const username = req.query.username;
-  playersEliminated = req.query.numPlayersEliminated;
-  const user = testUsers[username]
-  const eliminatedTarget = user['nextTarget'];
-  const assassin = user['assassin'];
-  user['isEliminated'] = true;
-  user['nextTarget'] = null;
-  user['assassin'] = null;
+    const username = req.query.username;
+    playersEliminated = req.query.numPlayersEliminated;
+    const user = testUsers[username];
+    const eliminatedTarget = user['nextTarget'];
+    const assassin = user['assassin'];
+    
+    // Record the elimination with timestamp
+    eliminationsHistory.push({
+        assassin: assassin,
+        target: username,
+        timestamp: new Date().toISOString()
+    });
 
-  //updating the person who will now have the target
-  const newAssassin = testUsers[assassin];
-  newAssassin['nextTarget'] = eliminatedTarget;
+    user['isEliminated'] = true;
+    user['nextTarget'] = null;
+    user['assassin'] = null;
 
-  //updating the 'assassin' of the new target
-  const target = testUsers[eliminatedTarget];
-  target['assassin'] = assassin;
+    //updating the person who will now have the target
+    const newAssassin = testUsers[assassin];
+    newAssassin['nextTarget'] = eliminatedTarget;
 
-  console.log(assassin)
-  console.log(eliminatedTarget)
-  var index = aliveUsers.indexOf(username);
-  if (index != -1) aliveUsers.splice(index, 1);
-  console.log(aliveUsers);
-  console.log(testUsers);
-  playersEliminated++;
+    //updating the 'assassin' of the new target
+    const target = testUsers[eliminatedTarget];
+    target['assassin'] = assassin;
 
-  res.json({ message: playersEliminated }); 
+    console.log(assassin)
+    console.log(eliminatedTarget)
+    var index = aliveUsers.indexOf(username);
+    if (index != -1) aliveUsers.splice(index, 1);
+    console.log(aliveUsers);
+    console.log(testUsers);
+    playersEliminated++;
+
+    console.log("New elimination recorded:", eliminationsHistory[eliminationsHistory.length - 1]);
+    res.json({ message: playersEliminated }); 
+});
+
+// Add new endpoint to get elimination history
+app.get('/eliminationsHistory', (req, res) => {
+    try {
+        console.log("Sending eliminations history:", eliminationsHistory);
+        res.json({ message: eliminationsHistory });
+    } catch (error) {
+        console.error("Error in /eliminationsHistory:", error);
+        res.status(500).json({ error: 'Internal server error', message: [] });
+    }
 });
 
 // POST requests
